@@ -20,7 +20,7 @@ class RoleController extends Controller
      */
       public function index()
 {
-    // Gate::authorize('read roles');
+    Gate::authorize('read roles');
     // Ambil semua role dengan permissions
     $roles = Role::with('permissions')->withCount('users')->get();
 
