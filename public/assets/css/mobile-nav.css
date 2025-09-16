@@ -1,0 +1,141 @@
+/* Mobile Bottom Navigation CSS - Tambahkan ke file CSS custom Anda */
+
+/* Mobile Bottom Navigation Styles */
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bs-white);
+    border-top: 1px solid var(--bs-gray-300);
+    padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.mobile-bottom-nav .nav-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.mobile-bottom-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: var(--bs-gray-600);
+    transition: all 0.3s ease;
+    padding: 8px 12px;
+    border-radius: 12px;
+    min-width: 60px;
+    position: relative;
+}
+
+.mobile-bottom-nav .nav-item:hover,
+.mobile-bottom-nav .nav-item:focus {
+    color: var(--bs-primary);
+    text-decoration: none;
+}
+
+.mobile-bottom-nav .nav-item.active {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.mobile-bottom-nav .nav-item .nav-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.mobile-bottom-nav .nav-item .nav-text {
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+/* Badge untuk notifikasi */
+.mobile-bottom-nav .nav-item .nav-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--bs-danger);
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .mobile-bottom-nav {
+    background: var(--bs-dark);
+    border-top-color: var(--bs-gray-700);
+}
+
+[data-bs-theme="dark"] .mobile-bottom-nav .nav-item {
+    color: var(--bs-gray-400);
+}
+
+[data-bs-theme="dark"] .mobile-bottom-nav .nav-item.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.2);
+}
+
+/* Media Queries untuk responsivitas */
+@media (max-width: 991.98px) {
+    /* Tampilkan mobile bottom navigation sebagai fitur tambahan */
+    .mobile-bottom-nav {
+        display: block;
+    }
+
+    /* Pastikan hamburger button tetap terlihat - JANGAN hide */
+    #kt_app_sidebar_mobile_toggle {
+        display: flex !important;
+    }
+
+    /* Pastikan content tidak tertutup bottom nav */
+    .app-main {
+        padding-bottom: 80px;
+    }
+
+    /* Adjust body padding saat sidebar mobile terbuka */
+    body[data-kt-app-sidebar-minimize="on"] .app-main {
+        padding-bottom: 80px;
+    }
+    
+    /* Adjust main content saat drawer sidebar terbuka */
+    body[data-kt-drawer-enabled] .app-main {
+        padding-bottom: 80px;
+    }
+    
+    /* Pastikan topbar container tetap normal */
+    #kt_app_header_container {
+        display: flex !important;
+    }
+    
+    /* Pastikan hamburger area tetap ada */
+    .d-flex.align-items-center.d-lg-none {
+        display: flex !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .mobile-bottom-nav .nav-item .nav-text {
+        font-size: 10px;
+    }
+    
+    .mobile-bottom-nav .nav-item {
+        min-width: 50px;
+        padding: 6px 8px;
+    }
+}

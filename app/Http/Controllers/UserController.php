@@ -33,9 +33,10 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-   public function index()
+    public function index()
     {
-        $users = User::orderBy('created_at', 'desc')->get();
+        // Gunakan eager loading untuk memuat roles
+        $users = User::with('roles')->get();
         return view('pages.users.index', compact('users'));
     }
 
@@ -43,7 +44,9 @@ class UserController extends Controller
     {
         $geozones = Geozone::where('is_active', true)->get();
         $workSchedules = WorkSchedule::where('is_active', true)->get(); // Tambahkan ini
-        return view('pages.users.create', compact('geozones', 'workSchedules')); // Tambahkan workSchedules
+        $roles = Role::all(); 
+
+        return view('pages.users.create', compact('geozones', 'workSchedules', 'roles'));
     }
 
 
@@ -58,7 +61,9 @@ class UserController extends Controller
             'geozones' => 'array|nullable',
             'can_attend_anywhere' => 'boolean',
             'can_anytime' => 'boolean', // Tambahkan validasi
-            'work_schedule_id' => 'nullable|exists:work_schedules,id' // Tambahkan validasi
+            'work_schedule_id' => 'nullable|exists:work_schedules,id', // Tambahkan validasi
+            'roles' => 'required|array|min:1', // Tambahkan validasi untuk roles
+            'roles.*' => 'exists:roles,name', // Pastikan role yang dipilih ada di tabel roles
         ]);
 
         // Simpan foto
@@ -98,6 +103,11 @@ class UserController extends Controller
         // Sync geozones
         if ($request->filled('geozones')) {
             $user->geozones()->sync($request->geozones);
+        }
+
+            // Kita menggunakan `syncRoles` untuk mengassign roles ke user
+        if ($request->filled('roles')) {
+            $user->syncRoles($request->roles);
         }
 
         return response()->json(['success' => true, 'message' => 'User berhasil didaftarkan!']);

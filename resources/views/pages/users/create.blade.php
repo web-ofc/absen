@@ -41,6 +41,7 @@
             <input type="checkbox" name="can_anytime" id="can_anytime" class="form-check-input" value="1">
             <label for="can_anytime" class="form-check-label">Bisa Absen Kapan Saja</label>
         </div>
+        
 
         <div class="mb-3" id="workScheduleField" style="display: none;">
             <label for="work_schedule_id" class="form-label">Work Schedule</label>
@@ -51,6 +52,17 @@
                 @endforeach
             </select>
             <small class="text-muted">Wajib dipilih jika tidak bisa absen kapan saja</small>
+        </div>
+
+         {{-- Tambahkan field untuk Roles --}}
+        <div class="mb-3">
+            <label for="roles" class="form-label">Pilih Roles</label>
+            <select name="roles[]" id="roles" class="form-select" multiple required>
+                @foreach($roles as $role)
+                    <option value="{{ $role->name }}">{{ $role->name }}</option>
+                @endforeach
+            </select>
+            <small class="text-muted">Bisa pilih lebih dari satu role. Gunakan CTRL/CMD untuk multi-select.</small>
         </div>
 
         <div class="mb-3">

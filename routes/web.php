@@ -1,13 +1,14 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LoginController;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GeozoneController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\AttendanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,9 +51,29 @@ Route::middleware('auth')->group(function () {
     //     ]);
     // });
 
+    // Route::get('/roles', [RoleController::class]);
+    // Route::get('/roles/get-data', [RoleController::class, 'getData'])->name('roles.getData');
+
+    // Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    //  Route::resource('roles', RoleController::class);
+    // Route::get('/roles', [RoleController::class, 'index']);
+
+
     Route::get('/me', [UserController::class, 'profile']);
 });
 
+
+Route::middleware(['auth'])->group(function () {
+    // Roles dengan permission check
+    Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
+    Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+    Route::get('/roles/{role}', [RoleController::class, 'show'])->name('roles.show');
+    Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+    Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+    Route::get('/roles/get-data', [RoleController::class, 'getData'])->name('roles.getData');
+});
 
 
 
