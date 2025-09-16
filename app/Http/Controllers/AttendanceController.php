@@ -249,127 +249,143 @@ class AttendanceController extends Controller
 
     
     private function distance($lat1, $lon1, $lat2, $lon2)
-{
-    $earthRadius = 6371000; // meter
-    $dLat = deg2rad($lat2 - $lat1);
-    $dLon = deg2rad($lon2 - $lon1);
-    $a = sin($dLat/2) * sin($dLat/2) +
-        cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-        sin($dLon/2) * sin($dLon/2);
-    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
-    return $earthRadius * $c;
-}
+    {
+        $earthRadius = 6371000; // meter
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat/2) * sin($dLat/2) +
+            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+            sin($dLon/2) * sin($dLon/2);
+        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        return $earthRadius * $c;
+    }
 
-public function store(Request $request)
-{
-    $user = $request->user();
-    $serverTime = Carbon::now();
-    $image = $request->photo;
-    $userLat = $request->latitude ?? null;
-    $userLon = $request->longitude ?? null;
+    public function store(Request $request)
+    {
+        $user = $request->user();
+        $serverTime = Carbon::now('Asia/Jakarta');
+        $today = $serverTime->toDateString();
+        $image = $request->photo;
+        $userLat = $request->latitude ?? null;
+        $userLon = $request->longitude ?? null;
 
-    // === Validasi lokasi (jika GPS dikirim) ===
-    if ($userLat && $userLon) {
-        $canAttend = false;
+        // === Validasi lokasi (jika GPS dikirim) ===
+        if ($userLat && $userLon) {
+            $canAttend = false;
 
-        if ($user->can_attend_anywhere) {
-            $canAttend = true;
-        } else {
-            $geozones = $user->geozones()->where('is_active', true)->get();
+            if ($user->can_attend_anywhere) {
+                $canAttend = true;
+            } else {
+                $geozones = $user->geozones()->where('is_active', true)->get();
 
-            foreach ($geozones as $zone) {
-                $distance = $this->distance($userLat, $userLon, $zone->latitude, $zone->longitude);
-                if ($distance <= $zone->radius) {
-                    $canAttend = true;
-                    break;
+                foreach ($geozones as $zone) {
+                    $distance = $this->distance($userLat, $userLon, $zone->latitude, $zone->longitude);
+                    if ($distance <= $zone->radius) {
+                        $canAttend = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!$canAttend) {
-            return response()->json([
-                'message' => 'Anda berada di luar area absen yang diizinkan.'
-            ], 422);
-        }
-    }
-
-    $lastAttendance = Attendance::where('user_id', $user->id)
-        ->latest()
-        ->first();
-
-   // ======== ABSEN MASUK ========
-    if ($request->type === 'in') {
-        if ($lastAttendance && !$lastAttendance->time_out) {
-            return response()->json(['message' => 'Anda belum checkout dari absen sebelumnya.'], 422);
-        }
-
-
-        $imageName = 'attendance/in/' . uniqid() . '.jpg';
-        Storage::disk('public')->put($imageName, base64_decode($image));
-
-        $attendance = Attendance::create([
-            'user_id'      => $user->id,
-            'time_in'      => $serverTime,
-            'photo_in'     => $imageName,
-            'check_in_lat' => $userLat,
-            'check_in_lng' => $userLon,
-        ]);
-
-        return response()->json(['message' => 'Berhasil absen masuk!', 'attendance' => $attendance]);
-    }
-
-
-    // ======== ABSEN PULANG ========
-    if ($request->type === 'out') {
-        if (!$lastAttendance) {
-            return response()->json(['message' => 'Belum ada absen masuk'], 422);
-        }
-
-        if ($lastAttendance->time_out) {
-            return response()->json(['message' => 'Sudah absen pulang'], 422);
-        }
-
-        $canCheckout = false;
-
-        if ($user->can_anytime) {
-            // aturan minimal 9 jam
-            $jamKerja = Carbon::parse($lastAttendance->time_in)->diffInHours($serverTime);
-            if ($jamKerja >= 9) {
-                $canCheckout = true;
-            }
-        } elseif ($user->workSchedule) {
-            $schedule = $user->workSchedule;
-            $timeIn   = Carbon::parse($lastAttendance->time_in);
-
-            $scheduleStart = Carbon::parse($timeIn->format('Y-m-d') . ' ' . $schedule->start_time);
-            $scheduleEnd   = Carbon::parse($timeIn->format('Y-m-d') . ' ' . $schedule->end_time);
-
-            if ($schedule->cross_midnight) {
-                $scheduleEnd->addDay($schedule->end_time_next_day);
-            }
-
-            if ($serverTime->greaterThanOrEqualTo($scheduleEnd)) {
-                $canCheckout = true;
+            if (!$canAttend) {
+                return response()->json([
+                    'message' => 'Anda berada di luar area absen yang diizinkan.'
+                ], 422);
             }
         }
 
-        if (!$canCheckout) {
-            return response()->json(['message' => 'Belum bisa checkout sesuai aturan jadwal kerja.'], 422);
+        
+
+        // cek apakah sudah ada absen hari ini
+        $attendanceToday = Attendance::where('user_id', $user->id)
+            ->whereDate('time_in', $today)
+            ->first();
+
+        // cek apakah absen terakhir sudah terisi semua?
+        $lastAttendance = Attendance::where('user_id', $user->id)
+            ->latest()
+            ->first();
+
+        // ======== ABSEN MASUK ========
+        if ($request->type === 'in') {
+
+            if ($lastAttendance && !$lastAttendance->time_out) {
+                return response()->json(['message' => 'Anda belum checkout dari absen sebelumnya.'], 422);
+            }
+            
+            // 2. Cek apakah sudah absen hari ini? (Khusus untuk user "can anytime")
+            if ($attendanceToday) {
+                return response()->json([
+                    'message' => 'Anda sudah melakukan absen masuk hari ini.'
+                ], 422);
+            }
+
+            $imageName = 'attendance/in/' . uniqid() . '.jpg';
+            Storage::disk('public')->put($imageName, base64_decode($image));
+
+            $attendance = Attendance::create([
+                'user_id'      => $user->id,
+                'time_in'      => $serverTime,
+                'photo_in'     => $imageName,
+                'check_in_lat' => $userLat,
+                'check_in_lng' => $userLon,
+            ]);
+
+            return response()->json(['message' => 'Berhasil absen masuk!', 'attendance' => $attendance]);
         }
 
-        $imageName = 'attendance/out/' . uniqid() . '.jpg';
-        Storage::disk('public')->put($imageName, base64_decode($image));
 
-        $lastAttendance->update([
-            'time_out'      => $serverTime,
-            'photo_out'     => $imageName,
-            'check_out_lat' => $userLat,
-            'check_out_lng' => $userLon,
-        ]);
+        // ======== ABSEN PULANG ========
+        if ($request->type === 'out') {
+            if (!$lastAttendance) {
+                return response()->json(['message' => 'Belum ada absen masuk'], 422);
+            }
 
-        return response()->json(['message' => 'Berhasil absen pulang!', 'attendance' => $lastAttendance]);
+            if ($lastAttendance->time_out) {
+                return response()->json(['message' => 'Sudah absen pulang'], 422);
+            }
+
+            $canCheckout = false;
+
+            if ($user->can_anytime) {
+                // aturan minimal 9 jam
+                $jamKerja = Carbon::parse($lastAttendance->time_in)->diffInHours($serverTime);
+                if ($jamKerja >= 9) {
+                    $canCheckout = true;
+                }
+            } elseif ($user->workSchedule) {
+                $schedule = $user->workSchedule;
+                $timeIn   = Carbon::parse($lastAttendance->time_in);
+
+                $scheduleStart = Carbon::parse($timeIn->format('Y-m-d') . ' ' . $schedule->start_time);
+                $scheduleEnd   = Carbon::parse($timeIn->format('Y-m-d') . ' ' . $schedule->end_time);
+
+                if ($schedule->cross_midnight) {
+                    $scheduleEnd->addDay($schedule->end_time_next_day);
+                }
+
+                if ($serverTime->greaterThanOrEqualTo($scheduleEnd)) {
+                    $canCheckout = true;
+                }
+            }
+
+            if (!$canCheckout) {
+                return response()->json(['message' => 'Belum bisa checkout sesuai aturan jadwal kerja.'], 422);
+            }
+
+            $imageName = 'attendance/out/' . uniqid() . '.jpg';
+            Storage::disk('public')->put($imageName, base64_decode($image));
+
+            $lastAttendance->update([
+                'time_out'      => $serverTime,
+                'photo_out'     => $imageName,
+                'check_out_lat' => $userLat,
+                'check_out_lng' => $userLon,
+            ]);
+
+            return response()->json(['message' => 'Berhasil absen pulang!', 'attendance' => $lastAttendance]);
+        }
     }
-}
 
     
 

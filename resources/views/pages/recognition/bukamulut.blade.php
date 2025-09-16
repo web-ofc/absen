@@ -1,35 +1,6 @@
-{{-- <!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Face Recognition Absensi</title>
-
-  <meta name="csrf-token" content="{{ csrf_token() }}">
+@extends('layouts.master')
 
 
-  <!-- Bootstrap 5 CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- FontAwesome (biar icon sign in/out muncul) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="{{ asset('leaflet/leaflet.css') }}" />
-
-  <style>
-    #map {
-      width: 100%;
-      height: 500px;
-    }
-    video, canvas {
-      border-radius: .5rem;
-    }
-  </style>
-</head>
-<body> --}}
-
-  @extends('layouts.master')
 
 @section('content')
 <style>
@@ -75,19 +46,9 @@
 @endsection
 
 @push('scripts')
-<!-- Bootstrap 5 JS Bundle -->
-{{-- <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script> --}}
-
-{{-- <!-- Leaflet JS -->
-<script src="{{ asset('leaflet/leaflet.js') }}"></script> --}}
-
-<!-- Face API JS -->
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  // let map;
-  // let currentDetectedUser = null;
 
   // // === MAP ===
   function initMap(lat, lon, zoom = 16) {
@@ -99,11 +60,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }).addTo(map);
   }
 
-  let map;
+    let map;
     let currentDetectedUser = null;
     // Tambahkan variabel untuk menyimpan lokasi pengguna
     let userLocation = null;
     let isInGeozone = false;
+    let isMouthOpen = false;
+
 
     // Fungsi untuk menghitung jarak Haversine (bisa juga di-copy dari PHP, tapi lebih baik dikerjakan di backend)
     function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -262,26 +225,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
   function updateButtonState() {
-  const canAbsen = currentDetectedUser && isInGeozone;
-  
-  absenMasukBtn.disabled = !canAbsen;
-  absenPulangBtn.disabled = !canAbsen;
-  
-  // 🔥 FEEDBACK YANG LEBIH JELAS
-  if (!currentDetectedUser) {
-    statusEl.innerHTML = "🔍 Mencari wajah...";
-    statusEl.style.color = "blue";
-  } else if (currentDetectedUser === "unknown") {
-    statusEl.innerHTML = "❌ Wajah tidak terdaftar";
-    statusEl.style.color = "red";
-  } else if (!isInGeozone) {
-    statusEl.innerHTML = `👤 ${currentDetectedUser} - 📍 Diluar area absen`;
-    statusEl.style.color = "orange";
-  } else {
-    statusEl.innerHTML = `✅ ${currentDetectedUser} - Siap absen`;
-    statusEl.style.color = "green";
+    const canAbsen = currentDetectedUser && isInGeozone && isMouthOpen;
+
+    absenMasukBtn.disabled = !canAbsen;
+    absenPulangBtn.disabled = !canAbsen;
+
+    if (!currentDetectedUser) {
+      statusEl.innerHTML = "🔍 Mencari wajah...";
+      statusEl.style.color = "blue";
+    } else if (currentDetectedUser === "unknown") {
+      statusEl.innerHTML = "❌ Wajah tidak terdaftar";
+      statusEl.style.color = "red";
+    } else if (!isInGeozone) {
+      statusEl.innerHTML = `👤 ${currentDetectedUser} - 📍 Diluar area absen`;
+      statusEl.style.color = "orange";
+    } else if (!isMouthOpen) {
+      statusEl.innerHTML = `👤 ${currentDetectedUser} - 👄 Harap buka mulut`;
+      statusEl.style.color = "orange";
+    } else {
+      statusEl.innerHTML = `✅ ${currentDetectedUser} - Siap absen`;
+      statusEl.style.color = "green";
+    }
   }
-}
+
 
   // === FACE RECOGNITION ===
   const video = document.getElementById('video');
@@ -401,35 +367,49 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (resizedDetections.length > 0) {
         const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-        
+
         results.forEach((result, i) => {
           const box = resizedDetections[i].detection.box;
-          const label = result.toString();
-          
-          // 🔥 PERBAIKAN: Pastikan hanya menampilkan jika benar-benar match
+          const landmarks = resizedDetections[i].landmarks;
+
+          const mouth = landmarks.getMouth(); // array titik bibir
+          const topLip = mouth[13];  // titik bibir atas tengah
+          const bottomLip = mouth[19]; // titik bibir bawah tengah
+
+          // Hitung jarak vertikal bibir
+          const mouthOpenDistance = bottomLip.y - topLip.y;
+          isMouthOpen = mouthOpenDistance > 15; // threshold bisa diatur sesuai kebutuhan
+
           if (result.label !== "unknown" && result.distance < 0.5) {
             new faceapi.draw.DrawBox(box, { 
-              label: label,
-              boxColor: 'green'
+              label: result.label,
+              boxColor: isMouthOpen ? 'green' : 'orange' // hijau kalau mulut terbuka
             }).draw(overlay);
-            
+
             currentDetectedUser = result.label;
-            statusEl.innerText = `👤 Wajah dikenali: ${result.label}`;
+
+            if (isMouthOpen) {
+              statusEl.innerText = `👤 ${result.label} - Mulut terbuka ✅`;
+            } else {
+              statusEl.innerText = `👤 ${result.label} - Harap buka mulut 👄`;
+            }
           } else {
-            // 🔥 Tampilkan sebagai unknown dengan warna merah
             new faceapi.draw.DrawBox(box, { 
               label: "Unknown",
               boxColor: 'red'
             }).draw(overlay);
-            
+
             currentDetectedUser = null;
+            isMouthOpen = false;
             statusEl.innerText = "❌ Wajah tidak dikenali";
           }
         });
       } else {
         currentDetectedUser = null;
+        isMouthOpen = false;
         statusEl.innerText = "🔍 Mencari wajah...";
       }
+
 
       updateButtonState();
     }, 1000);
