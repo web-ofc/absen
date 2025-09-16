@@ -10,6 +10,11 @@ use Yajra\DataTables\Facades\DataTables;
 
 class RoleController extends Controller
 {
+    //  public function __construct()
+    // {
+    //     // Pengecekan izin untuk melihat tabel roles
+    //     Gate::authorize('read roles');
+    // }
     /**
      * Display a listing of the resource.
      */
